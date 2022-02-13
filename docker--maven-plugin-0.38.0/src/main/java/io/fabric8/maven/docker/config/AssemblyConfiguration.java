@@ -38,7 +38,7 @@ public class AssemblyConfiguration implements Serializable {
     private String descriptorRef;
 
     /**
-     * @deprecated Use {@link BuildImageConfiguration#dockerFileDir} instead
+     * @deprecated Use {@link BuildImageConfiguration#data.dockerFileDir} instead
      */
     @Parameter
     @Deprecated
