@@ -99,7 +99,7 @@ public class DockerFileBuilder {
 
         StringBuilder b = new StringBuilder();
 
-        DockerFileKeyword.FROM.addTo(b, baseImage != null ? baseImage : DockerAssemblyManager.DEFAULT_DATA_BASE_IMAGE);
+        DockerFileKeyword.FROM.addTo(b, baseImage != null ? baseImage : DockerAssemblyManagerInterface.DEFAULT_DATA_BASE_IMAGE);
         if (maintainer != null) {
             DockerFileKeyword.MAINTAINER.addTo(b, maintainer);
         }

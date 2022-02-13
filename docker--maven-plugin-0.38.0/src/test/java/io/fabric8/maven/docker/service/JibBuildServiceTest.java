@@ -2,7 +2,7 @@ package io.fabric8.maven.docker.service;
 
 import com.google.cloud.tools.jib.api.Credential;
 import io.fabric8.maven.docker.access.AuthConfig;
-import io.fabric8.maven.docker.assembly.DockerAssemblyManager;
+import io.fabric8.maven.docker.assembly.DockerAssemblyManagerInterface;
 import io.fabric8.maven.docker.config.BuildImageConfiguration;
 import io.fabric8.maven.docker.config.ImageConfiguration;
 import io.fabric8.maven.docker.util.AuthConfigFactory;
@@ -47,7 +47,7 @@ public class JibBuildServiceTest {
     private AuthConfigFactory authConfigFactory;
 
     @Mocked
-    private DockerAssemblyManager dockerAssemblyManager;
+    private DockerAssemblyManagerInterface dockerAssemblyManager;
 
     @Test
     @java.lang.SuppressWarnings("squid:S00112")

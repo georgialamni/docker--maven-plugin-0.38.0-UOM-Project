@@ -17,7 +17,7 @@ package io.fabric8.maven.docker.service;/*
 
 import io.fabric8.maven.docker.assembly.ArchiverCustomizer;
 import io.fabric8.maven.docker.assembly.AssemblyFiles;
-import io.fabric8.maven.docker.assembly.DockerAssemblyManager;
+import io.fabric8.maven.docker.assembly.DockerAssemblyManagerInterface;
 import io.fabric8.maven.docker.config.AssemblyConfiguration;
 import io.fabric8.maven.docker.config.BuildImageConfiguration;
 import io.fabric8.maven.docker.config.ImageConfiguration;
@@ -39,10 +39,10 @@ public class ArchiveService {
 
 
     private final Logger log;
-    private DockerAssemblyManager dockerAssemblyManager;
+    private DockerAssemblyManagerInterface dockerAssemblyManager;
 
 
-    public ArchiveService(DockerAssemblyManager dockerAssemblyManager,Logger log) {
+    public ArchiveService(DockerAssemblyManagerInterface dockerAssemblyManager,Logger log) {
         this.log = log;
         this.dockerAssemblyManager = dockerAssemblyManager;
     }

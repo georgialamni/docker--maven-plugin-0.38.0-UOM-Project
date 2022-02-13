@@ -6,7 +6,7 @@ import com.google.gson.JsonParseException;
 import io.fabric8.maven.docker.access.BuildOptions;
 import io.fabric8.maven.docker.access.DockerAccess;
 import io.fabric8.maven.docker.access.DockerAccessException;
-import io.fabric8.maven.docker.assembly.DockerAssemblyManager;
+import io.fabric8.maven.docker.assembly.DockerAssemblyManagerInterface;
 import io.fabric8.maven.docker.config.AssemblyConfiguration;
 import io.fabric8.maven.docker.config.BuildImageConfiguration;
 import io.fabric8.maven.docker.config.CleanupMode;
@@ -382,7 +382,7 @@ public class BuildService {
             }
         }
         for (String fromImage : fromImages) {
-            if (fromImage != null && !DockerAssemblyManager.SCRATCH_IMAGE.equals(fromImage)) {
+            if (fromImage != null && !DockerAssemblyManagerInterface.SCRATCH_IMAGE.equals(fromImage)) {
                 registryService.pullImageWithPolicy(fromImage, imagePullManager, buildContext.getRegistryConfig(), queryService.hasImage(fromImage));
             }
         }
@@ -408,7 +408,7 @@ public class BuildService {
         if (fromImage == null) {
             List<AssemblyConfiguration> assemblyConfig = buildConfig.getAssemblyConfigurations();
             if (assemblyConfig.isEmpty()) {
-                fromImage = DockerAssemblyManager.DEFAULT_DATA_BASE_IMAGE;
+                fromImage = DockerAssemblyManagerInterface.DEFAULT_DATA_BASE_IMAGE;
             }
         }
         return fromImage;

@@ -9,7 +9,7 @@ import java.util.Properties;
 import io.fabric8.maven.docker.access.BuildOptions;
 import io.fabric8.maven.docker.access.DockerAccess;
 import io.fabric8.maven.docker.access.DockerAccessException;
-import io.fabric8.maven.docker.assembly.DockerAssemblyManager;
+import io.fabric8.maven.docker.assembly.DockerAssemblyManagerInterface;
 import io.fabric8.maven.docker.config.BuildImageConfiguration;
 import io.fabric8.maven.docker.util.DockerFileUtilTest;
 import io.fabric8.maven.docker.config.ImageConfiguration;
@@ -41,7 +41,7 @@ public class BuildServiceTest {
     private DockerAccess docker;
 
     @Mocked
-    private DockerAssemblyManager dockerAssemblyManager;
+    private DockerAssemblyManagerInterface dockerAssemblyManager;
 
     private ImageConfiguration imageConfig;
 

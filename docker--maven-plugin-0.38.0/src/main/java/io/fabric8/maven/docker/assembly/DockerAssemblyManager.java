@@ -55,16 +55,7 @@ import org.codehaus.plexus.interpolation.fixed.FixedStringSearchInterpolator;
  * @since 08.05.14
  */
 @Component(role = DockerAssemblyManager.class, instantiationStrategy = "per-lookup")
-public class DockerAssemblyManager {
-
-    public static final String DEFAULT_DATA_BASE_IMAGE = "busybox:latest";
-    public static final String SCRATCH_IMAGE = "scratch";
-
-    // Assembly name used also as build directory within outputBuildDir
-    public static final String DOCKER_IGNORE = ".maven-dockerignore";
-    public static final String DOCKER_EXCLUDE = ".maven-dockerexclude";
-    public static final String DOCKER_INCLUDE = ".maven-dockerinclude";
-    public static final String DOCKERFILE_NAME = "Dockerfile";
+public class DockerAssemblyManager implements DockerAssemblyManagerInterface {
 
     private static final String TAR_ARCHIVER_TYPE = "tar";
 
@@ -87,7 +78,8 @@ public class DockerAssemblyManager {
      * @param destinationDirectory directory where to place extracted content
      * @throws MojoExecutionException if an error occurs during extracting.
      */
-    public void extractDockerTarArchive(File archiveFile, File destinationDirectory) throws MojoExecutionException {
+    @Override
+	public void extractDockerTarArchive(File archiveFile, File destinationDirectory) throws MojoExecutionException {
         try {
             TarUnArchiver unArchiver = (TarUnArchiver) archiverManager.getUnArchiver(TAR_ARCHIVER_TYPE);
             unArchiver.setCompression(UntarCompressionMethod.NONE);
@@ -112,7 +104,8 @@ public class DockerAssemblyManager {
      * @return file holding the path to the created assembly tar file
      * @throws MojoExecutionException
      */
-    public File createDockerTarArchive(String imageName, MojoParameters params, BuildImageConfiguration buildConfig, Logger log)
+    @Override
+	public File createDockerTarArchive(String imageName, MojoParameters params, BuildImageConfiguration buildConfig, Logger log)
             throws MojoExecutionException {
         return createDockerTarArchive(imageName, params, buildConfig, log, null);
     }
@@ -129,7 +122,8 @@ public class DockerAssemblyManager {
      * @return file holding the path to the created assembly tar file
      * @throws MojoExecutionException
      */
-    public File createDockerTarArchive(String imageName, final MojoParameters params, final BuildImageConfiguration buildConfig, Logger log, ArchiverCustomizer finalCustomizer)
+    @Override
+	public File createDockerTarArchive(String imageName, final MojoParameters params, final BuildImageConfiguration buildConfig, Logger log, ArchiverCustomizer finalCustomizer)
             throws MojoExecutionException {
 
         final BuildDirs buildDirs = createBuildDirs(imageName, params);
@@ -273,7 +267,8 @@ public class DockerAssemblyManager {
      * Extract all files with a tracking archiver. These can be used to track changes in the filesystem and triggering
      * a rebuild of the image if needed ('docker:watch')
      */
-    public AssemblyFiles getAssemblyFiles(String name, AssemblyConfiguration assemblyConfig, MojoParameters mojoParams, Logger log)
+    @Override
+	public AssemblyFiles getAssemblyFiles(String name, AssemblyConfiguration assemblyConfig, MojoParameters mojoParams, Logger log)
             throws InvalidAssemblerConfigurationException, ArchiveCreationException, AssemblyFormattingException, MojoExecutionException {
 
         BuildDirs buildDirs = createBuildDirs(name, mojoParams);
@@ -323,7 +318,8 @@ public class DockerAssemblyManager {
                 assemblyConfig.stream().anyMatch(this::isArchive);
     }
 
-    public File createChangedFilesArchive(List<AssemblyFiles.Entry> entries, File assemblyDirectory,
+    @Override
+	public File createChangedFilesArchive(List<AssemblyFiles.Entry> entries, File assemblyDirectory,
                                           String imageName, MojoParameters mojoParameters)
             throws MojoExecutionException {
         BuildDirs dirs = createBuildDirs(imageName, mojoParameters);

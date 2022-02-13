@@ -17,7 +17,7 @@
 package io.fabric8.maven.docker.service;
 
 import io.fabric8.maven.docker.access.DockerAccess;
-import io.fabric8.maven.docker.assembly.DockerAssemblyManager;
+import io.fabric8.maven.docker.assembly.DockerAssemblyManagerInterface;
 import io.fabric8.maven.docker.log.LogOutputSpecFactory;
 import io.fabric8.maven.docker.util.Logger;
 
@@ -45,10 +45,10 @@ public class ServiceHub {
     private final VolumeService volumeService;
     private final WatchService watchService;
     private final WaitService waitService;
-    private final DockerAssemblyManager dockerAssemblyManager;
+    private final DockerAssemblyManagerInterface dockerAssemblyManager;
 
     ServiceHub(DockerAccess dockerAccess, ContainerTracker containerTracker, BuildPluginManager pluginManager,
-               DockerAssemblyManager dockerAssemblyManager, MavenProject project, MavenSession session,
+               DockerAssemblyManagerInterface dockerAssemblyManager, MavenProject project, MavenSession session,
                Logger logger, LogOutputSpecFactory logSpecFactory) {
 
         this.dockerAccess = dockerAccess;
@@ -176,7 +176,7 @@ public class ServiceHub {
         return mojoExecutionService;
     }
 
-    public DockerAssemblyManager getDockerAssemblyManager() {
+    public DockerAssemblyManagerInterface getDockerAssemblyManager() {
         return dockerAssemblyManager;
     }
 
