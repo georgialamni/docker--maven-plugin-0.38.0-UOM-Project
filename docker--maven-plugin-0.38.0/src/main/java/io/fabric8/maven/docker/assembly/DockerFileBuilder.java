@@ -7,6 +7,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.google.common.base.Joiner;
+
+import io.fabric8.maven.docker.assembly.DockerFileBuilder.CopyEntry;
 import io.fabric8.maven.docker.config.Arguments;
 import io.fabric8.maven.docker.config.HealthCheckConfiguration;
 
@@ -25,58 +27,10 @@ public class DockerFileBuilder {
 
     private static final Pattern ENV_VAR_PATTERN = Pattern.compile("^\\$(\\{[a-zA-Z0-9_]+\\}|[a-zA-Z0-9_]+).*");
 
-    // Base image to use as from
-    private String baseImage;
+    private DockerFileBuilderData data = new DockerFileBuilderData(null, "/maven", null, new ArrayList<>(), new ArrayList<>(),
+			new ArrayList<>(), new LinkedHashMap<>(), new LinkedHashMap<>(), new ArrayList<>(), false);
 
-    // Maintainer of this image
-    private String maintainer;
-
-    // Workdir
-    private String workdir = null;
-
-    // Basedir to be export
-    private String basedir = "/maven";
-
-    private Arguments entryPoint;
-    private Arguments cmd;
-
-    private Boolean exportTargetDir = null;
-
-    // User under which the files should be added
-    private String assemblyUser;
-
-    // User to run as
-    private String user;
-
-    private HealthCheckConfiguration healthCheck;
-
-    // List of files to add. Source and destination follow except that destination
-    // in interpreted as a relative path to the exportDir
-    // See also http://docs.docker.io/reference/builder/#copy
-    private List<CopyEntry> copyEntries = new ArrayList<>();
-
-    // list of ports to expose and environments to use
-    private List<String> ports = new ArrayList<>();
-
-    // SHELL executable and params to be used with the runCmds see issue #1156 on github
-    private Arguments shell;
-
-    // list of RUN Commands to run along with image build see issue #191 on github
-    private List<String> runCmds = new ArrayList<>();
-
-    // environment
-    private Map<String,String> envEntries = new LinkedHashMap<>();
-
-    // image labels
-    private Map<String, String> labels = new LinkedHashMap<>();
-
-    // exposed volumes
-    private List<String> volumes = new ArrayList<>();
-
-    // whether the Dockerfile should be optimised. i.e. compressing run statements into a single statement
-    private boolean shouldOptimise = false;
-
-    /**
+	/**
      * Create a DockerFile in the given directory
      * @param  destDir directory where to store the dockerfile
      * @return the full path to the docker file
@@ -99,9 +53,9 @@ public class DockerFileBuilder {
 
         StringBuilder b = new StringBuilder();
 
-        DockerFileKeyword.FROM.addTo(b, baseImage != null ? baseImage : DockerAssemblyManagerInterface.DEFAULT_DATA_BASE_IMAGE);
-        if (maintainer != null) {
-            DockerFileKeyword.MAINTAINER.addTo(b, maintainer);
+        DockerFileKeyword.FROM.addTo(b, data.baseImage != null ? data.baseImage : DockerAssemblyManagerInterface.DEFAULT_DATA_BASE_IMAGE);
+        if (data.maintainer != null) {
+            DockerFileKeyword.MAINTAINER.addTo(b, data.maintainer);
         }
 
         addOptimisation();
@@ -126,28 +80,28 @@ public class DockerFileBuilder {
     }
 
     private void addUser(StringBuilder b) {
-        if (user != null) {
-            DockerFileKeyword.USER.addTo(b, user);
+        if (data.user != null) {
+            DockerFileKeyword.USER.addTo(b, data.user);
         }
     }
 
     private void addHealthCheck(StringBuilder b) {
-        if (healthCheck != null) {
+        if (data.healthCheck != null) {
             StringBuilder healthString = new StringBuilder();
 
-            switch (healthCheck.getMode()) {
+            switch (data.healthCheck.getMode()) {
             case cmd:
-                buildOption(healthString, DockerFileOption.HEALTHCHECK_INTERVAL, healthCheck.getInterval());
-                buildOption(healthString, DockerFileOption.HEALTHCHECK_TIMEOUT, healthCheck.getTimeout());
-                buildOption(healthString, DockerFileOption.HEALTHCHECK_START_PERIOD, healthCheck.getStartPeriod());
-                buildOption(healthString, DockerFileOption.HEALTHCHECK_RETRIES, healthCheck.getRetries());
-                buildArguments(healthString, DockerFileKeyword.CMD, false, healthCheck.getCmd());
+                buildOption(healthString, DockerFileOption.HEALTHCHECK_INTERVAL, data.healthCheck.getInterval());
+                buildOption(healthString, DockerFileOption.HEALTHCHECK_TIMEOUT, data.healthCheck.getTimeout());
+                buildOption(healthString, DockerFileOption.HEALTHCHECK_START_PERIOD, data.healthCheck.getStartPeriod());
+                buildOption(healthString, DockerFileOption.HEALTHCHECK_RETRIES, data.healthCheck.getRetries());
+                buildArguments(healthString, DockerFileKeyword.CMD, false, data.healthCheck.getCmd());
                 break;
             case none:
                 DockerFileKeyword.NONE.addTo(healthString, false);
                 break;
             default:
-                throw new IllegalArgumentException("Unsupported health check mode: " + healthCheck.getMode());
+                throw new IllegalArgumentException("Unsupported health check mode: " + data.healthCheck.getMode());
             }
 
             DockerFileKeyword.HEALTHCHECK.addTo(b, healthString.toString());
@@ -155,20 +109,20 @@ public class DockerFileBuilder {
     }
 
     private void addWorkdir(StringBuilder b) {
-        if (workdir != null) {
-            DockerFileKeyword.WORKDIR.addTo(b, workdir);
+        if (data.workdir != null) {
+            DockerFileKeyword.WORKDIR.addTo(b, data.workdir);
         }
     }
 
     private void addEntryPoint(StringBuilder b){
-        if (entryPoint != null) {
-            buildArguments(b, DockerFileKeyword.ENTRYPOINT, true, entryPoint);
+        if (data.entryPoint != null) {
+            buildArguments(b, DockerFileKeyword.ENTRYPOINT, true, data.entryPoint);
         }
     }
 
     private void addCmd(StringBuilder b){
-        if (cmd != null) {
-            buildArguments(b, DockerFileKeyword.CMD, true, cmd);
+        if (data.cmd != null) {
+            buildArguments(b, DockerFileKeyword.CMD, true, data.cmd);
         }
     }
 
@@ -197,18 +151,18 @@ public class DockerFileBuilder {
         if (copyEntry.user != null) {
             return copyEntry.user;
         }
-        return assemblyUser;
+        return data.assemblyUser;
     }
 
     private String targetDirForEntry(CopyEntry copyEntry) {
         if (copyEntry.target != null) {
             return copyEntry.target.equals("/") ? "" : copyEntry.target;
         }
-        return basedir.equals("/") ? "" : basedir;
+        return data.basedir.equals("/") ? "" : data.basedir;
     }
 
     private void addCopy(StringBuilder b) {
-        for (CopyEntry entry : copyEntries) {
+        for (CopyEntry entry : data.copyEntries) {
             String entryUser = userForEntry(entry);
             if (entryUser != null) {
                 String[] userParts = entryUser.split(":");
@@ -237,11 +191,11 @@ public class DockerFileBuilder {
     }
 
     private void addEnv(StringBuilder b) {
-        addMap(b, DockerFileKeyword.ENV, envEntries);
+        addMap(b, DockerFileKeyword.ENV, data.envEntries);
     }
 
     private void addLabels(StringBuilder b) {
-        addMap(b, DockerFileKeyword.LABEL, labels);
+        addMap(b, DockerFileKeyword.LABEL, data.labels);
     }
 
     private void addMap(StringBuilder b,DockerFileKeyword keyword, Map<String,String> map) {
@@ -296,10 +250,10 @@ public class DockerFileBuilder {
     }
 
     private void addPorts(StringBuilder b) {
-        if (ports.size() > 0) {
-            String[] portsS = new String[ports.size()];
+        if (data.ports.size() > 0) {
+            String[] portsS = new String[data.ports.size()];
             int i = 0;
-            for(String port : ports) {
+            for(String port : data.ports) {
             	portsS[i++] = validatePortExposure(port);
             }
             DockerFileKeyword.EXPOSE.addTo(b, portsS);
@@ -322,37 +276,37 @@ public class DockerFileBuilder {
     }
 
     private void addOptimisation() {
-        if (runCmds != null && !runCmds.isEmpty() && shouldOptimise) {
-            String optimisedRunCmd = StringUtils.join(runCmds.iterator(), " && ");
-            runCmds.clear();
-            runCmds.add(optimisedRunCmd);
+        if (data.runCmds != null && !data.runCmds.isEmpty() && data.shouldOptimise) {
+            String optimisedRunCmd = StringUtils.join(data.runCmds.iterator(), " && ");
+            data.runCmds.clear();
+            data.runCmds.add(optimisedRunCmd);
         }
     }
 
     private void addShell(StringBuilder b) {
-        if (shell != null) {
-            buildArgumentsAsJsonFormat(b, DockerFileKeyword.SHELL, true, shell);
+        if (data.shell != null) {
+            buildArgumentsAsJsonFormat(b, DockerFileKeyword.SHELL, true, data.shell);
         }
     }
 
 	private void addRun(StringBuilder b) {
-		for (String run : runCmds) {
+		for (String run : data.runCmds) {
             DockerFileKeyword.RUN.addTo(b, run);
 		}
 	}
 
     private void addVolumes(StringBuilder b) {
-        for (CopyEntry e : copyEntries) {
-            if (e.export != null ? e.export : baseImage == null) {
+        for (CopyEntry e : data.copyEntries) {
+            if (e.export != null ? e.export : data.baseImage == null) {
                 addVolume(b, targetDirForEntry(e));
             }
         }
 
-        if (exportTargetDir != null ? exportTargetDir : baseImage == null) {
-            addVolume(b, basedir);
+        if (data.exportTargetDir != null ? data.exportTargetDir : data.baseImage == null) {
+            addVolume(b, data.basedir);
         }
 
-        for (String volume : volumes) {
+        for (String volume : data.volumes) {
             addVolume(b, volume);
         }
     }
@@ -373,18 +327,18 @@ public class DockerFileBuilder {
 
     public DockerFileBuilder baseImage(String baseImage) {
         if (baseImage != null) {
-            this.baseImage = baseImage;
+            this.data.baseImage = baseImage;
         }
         return this;
     }
 
     public DockerFileBuilder maintainer(String maintainer) {
-        this.maintainer = maintainer;
+        this.data.maintainer = maintainer;
         return this;
     }
 
     public DockerFileBuilder workdir(String workdir) {
-        this.workdir = workdir;
+        this.data.workdir = workdir;
         return this;
     }
 
@@ -392,51 +346,51 @@ public class DockerFileBuilder {
         if (dir != null) {
             if (!dir.startsWith("/") && !ENV_VAR_PATTERN.matcher(dir).matches()) {
                 throw new IllegalArgumentException("'basedir' must be an absolute path starting with / (and not " +
-                                                   "'" + basedir + "') or start with an environment variable");
+                                                   "'" + data.basedir + "') or start with an environment variable");
             }
-            basedir = dir;
+            data.basedir = dir;
         }
         return this;
     }
 
     public DockerFileBuilder cmd(Arguments cmd) {
-        this.cmd = cmd;
+        this.data.cmd = cmd;
         return this;
     }
 
     public DockerFileBuilder entryPoint(Arguments entryPoint) {
-        this.entryPoint = entryPoint;
+        this.data.entryPoint = entryPoint;
         return this;
     }
 
     public DockerFileBuilder assemblyUser(String assemblyUser) {
-        this.assemblyUser = assemblyUser;
+        this.data.assemblyUser = assemblyUser;
         return this;
     }
 
     public DockerFileBuilder user(String user) {
-        this.user = user;
+        this.data.user = user;
         return this;
     }
 
     public DockerFileBuilder healthCheck(HealthCheckConfiguration healthCheck) {
-        this.healthCheck = healthCheck;
+        this.data.healthCheck = healthCheck;
         return this;
     }
 
     public DockerFileBuilder add(String source, String destination) {
-        this.copyEntries.add(new CopyEntry(source, destination));
+        this.data.copyEntries.add(new CopyEntry(source, destination));
         return this;
     }
 
     public DockerFileBuilder add(String source, String destination, String target, String user, Boolean exportTarget) {
-        this.copyEntries.add(new CopyEntry(source, destination, target, user, exportTarget));
+        this.data.copyEntries.add(new CopyEntry(source, destination, target, user, exportTarget));
         return this;
     }
 
     public DockerFileBuilder expose(List<String> ports) {
         if (ports != null) {
-            this.ports.addAll(ports);
+            this.data.ports.addAll(ports);
         }
         return this;
     }
@@ -447,7 +401,7 @@ public class DockerFileBuilder {
      * @return
      */
     public DockerFileBuilder shell(Arguments shell) {
-        this.shell = shell;
+        this.data.shell = shell;
         return this;
     }
 
@@ -460,7 +414,7 @@ public class DockerFileBuilder {
         if (runCmds != null) {
             for (String cmd : runCmds) {
                 if (!StringUtils.isEmpty(cmd)) {
-                    this.runCmds.add(cmd);
+                    this.data.runCmds.add(cmd);
                 }
             }
         }
@@ -468,34 +422,34 @@ public class DockerFileBuilder {
     }
 
     public DockerFileBuilder exportTargetDir(Boolean exportTargetDir) {
-        this.exportTargetDir = exportTargetDir;
+        this.data.exportTargetDir = exportTargetDir;
         return this;
     }
 
     public DockerFileBuilder env(Map<String, String> values) {
         if (values != null) {
-            this.envEntries.putAll(values);
-            validateMap(envEntries);
+            this.data.envEntries.putAll(values);
+            validateMap(data.envEntries);
         }
         return this;
     }
 
     public DockerFileBuilder labels(Map<String,String> values) {
         if (values != null) {
-            this.labels.putAll(values);
+            this.data.labels.putAll(values);
         }
         return this;
     }
 
     public DockerFileBuilder volumes(List<String> volumes) {
         if (volumes != null) {
-           this.volumes.addAll(volumes);
+           this.data.volumes.addAll(volumes);
         }
         return this;
     }
 
     public DockerFileBuilder optimise() {
-        this.shouldOptimise = true;
+        this.data.shouldOptimise = true;
         return this;
     }
 
