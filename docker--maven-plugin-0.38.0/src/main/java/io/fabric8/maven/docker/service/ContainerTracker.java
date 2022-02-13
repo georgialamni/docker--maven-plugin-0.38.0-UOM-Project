@@ -6,6 +6,7 @@ import io.fabric8.maven.docker.config.ImageConfiguration;
 import io.fabric8.maven.docker.config.RunImageConfiguration;
 import io.fabric8.maven.docker.config.StopMode;
 import io.fabric8.maven.docker.config.WaitConfiguration;
+import io.fabric8.maven.docker.service.ContainerTracker.ContainerShutdownDescriptor;
 import io.fabric8.maven.docker.util.GavLabel;
 
 /**
@@ -14,18 +15,10 @@ import io.fabric8.maven.docker.util.GavLabel;
  */
 public class ContainerTracker {
 
-    // Map holding associations between started containers and their images via name and aliases
-    // Key: Image, Value: Container
-    private final Map<String, String> imageToContainerMap = new HashMap<>();
+    private ContainerTrackerData data = new ContainerTrackerData(new HashMap<>(), new HashMap<>(), new LinkedHashMap<>(),
+			new HashMap<>());
 
-    // Key: Alias, Value: container
-    private final Map<String, String> aliasToContainerMap = new HashMap<>();
-
-    // Maps holding actions to be used when doing a shutdown
-    private final Map<String, ContainerShutdownDescriptor> shutdownDescriptorPerContainerMap = new LinkedHashMap<>();
-    private final Map<GavLabel,List<ContainerShutdownDescriptor>> shutdownDescriptorPerPomLabelMap = new HashMap<>();
-
-    /**
+	/**
      * Register a started container to this tracker
      *
      * @param containerId container id to register
@@ -36,7 +29,7 @@ public class ContainerTracker {
                                                ImageConfiguration imageConfig,
                                                GavLabel gavLabel) {
         ContainerShutdownDescriptor descriptor = new ContainerShutdownDescriptor(imageConfig, containerId);
-        shutdownDescriptorPerContainerMap.put(containerId, descriptor);
+        data.shutdownDescriptorPerContainerMap.put(containerId, descriptor);
         updatePomLabelMap(gavLabel, descriptor);
         updateImageToContainerMapping(imageConfig, containerId);
     }
@@ -48,7 +41,7 @@ public class ContainerTracker {
      * @return descriptor of the container removed or <code>null</code>
      */
     public synchronized ContainerShutdownDescriptor removeContainer(String containerId) {
-        ContainerShutdownDescriptor descriptor = shutdownDescriptorPerContainerMap.remove(containerId);
+        ContainerShutdownDescriptor descriptor = data.shutdownDescriptorPerContainerMap.remove(containerId);
         if (descriptor != null) {
             removeContainerIdFromLookupMaps(containerId);
             removeDescriptorFromPomLabelMap(descriptor);
@@ -63,10 +56,10 @@ public class ContainerTracker {
      * @return container id found or <code>null</code>
      */
     public synchronized String lookupContainer(String lookup) {
-        if (aliasToContainerMap.containsKey(lookup)) {
-            return aliasToContainerMap.get(lookup);
+        if (data.aliasToContainerMap.containsKey(lookup)) {
+            return data.aliasToContainerMap.get(lookup);
         }
-        return imageToContainerMap.get(lookup);
+        return data.imageToContainerMap.get(lookup);
     }
 
     /**
@@ -85,7 +78,7 @@ public class ContainerTracker {
             removeFromPerContainerMap(descriptors);
         } else {
             // All entries are requested
-            descriptors = new ArrayList<>(shutdownDescriptorPerContainerMap.values());
+            descriptors = new ArrayList<>(data.shutdownDescriptorPerContainerMap.values());
             clearAllMaps();
         }
 
@@ -104,7 +97,7 @@ public class ContainerTracker {
     public synchronized List<ContainerShutdownDescriptor> getShutdownDescriptors(GavLabel gavLabel) {
         if (gavLabel == null) {
             // All entries are requested
-            return new ArrayList<>(shutdownDescriptorPerContainerMap.values());
+            return new ArrayList<>(data.shutdownDescriptorPerContainerMap.values());
         }
         return getFromPomLabelMap(gavLabel);
     }
@@ -113,17 +106,17 @@ public class ContainerTracker {
 
     private void updatePomLabelMap(GavLabel gavLabel, ContainerShutdownDescriptor descriptor) {
         if (gavLabel != null) {
-            List<ContainerShutdownDescriptor> descList = shutdownDescriptorPerPomLabelMap.get(gavLabel);
+            List<ContainerShutdownDescriptor> descList = data.shutdownDescriptorPerPomLabelMap.get(gavLabel);
             if (descList == null) {
                 descList = new ArrayList<>();
-                shutdownDescriptorPerPomLabelMap.put(gavLabel, descList);
+                data.shutdownDescriptorPerPomLabelMap.put(gavLabel, descList);
             }
             descList.add(descriptor);
         }
     }
 
     private void removeDescriptorFromPomLabelMap(ContainerShutdownDescriptor descriptor) {
-        Iterator<Map.Entry<GavLabel, List<ContainerShutdownDescriptor>>> mapIt = shutdownDescriptorPerPomLabelMap.entrySet().iterator();
+        Iterator<Map.Entry<GavLabel, List<ContainerShutdownDescriptor>>> mapIt = data.shutdownDescriptorPerPomLabelMap.entrySet().iterator();
         while(mapIt.hasNext()) {
             Map.Entry<GavLabel,List<ContainerShutdownDescriptor>> mapEntry = mapIt.next();
             List<ContainerShutdownDescriptor> descs = mapEntry.getValue();
@@ -141,8 +134,8 @@ public class ContainerTracker {
     }
 
     private void removeContainerIdFromLookupMaps(String containerId) {
-        removeValueFromMap(imageToContainerMap,containerId);
-        removeValueFromMap(aliasToContainerMap,containerId);
+        removeValueFromMap(data.imageToContainerMap,containerId);
+        removeValueFromMap(data.aliasToContainerMap,containerId);
     }
 
     private void removeValueFromMap(Map<String, String> map, String value) {
@@ -157,14 +150,14 @@ public class ContainerTracker {
 
     private void updateImageToContainerMapping(ImageConfiguration imageConfig, String id) {
         // Register name -> containerId and alias -> name
-        imageToContainerMap.put(imageConfig.getName(), id);
+        data.imageToContainerMap.put(imageConfig.getName(), id);
         if (imageConfig.getAlias() != null) {
-            aliasToContainerMap.put(imageConfig.getAlias(), id);
+            data.aliasToContainerMap.put(imageConfig.getAlias(), id);
         }
     }
 
     private void removeFromPerContainerMap(List<ContainerShutdownDescriptor> descriptors) {
-        Iterator<Map.Entry<String, ContainerShutdownDescriptor>> it = shutdownDescriptorPerContainerMap.entrySet().iterator();
+        Iterator<Map.Entry<String, ContainerShutdownDescriptor>> it = data.shutdownDescriptorPerContainerMap.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, ContainerShutdownDescriptor> entry = it.next();
             if (descriptors.contains(entry.getValue())) {
@@ -176,14 +169,14 @@ public class ContainerTracker {
 
     private List<ContainerShutdownDescriptor> removeFromPomLabelMap(GavLabel gavLabel) {
         List<ContainerShutdownDescriptor> descriptors;
-        descriptors = shutdownDescriptorPerPomLabelMap.remove(gavLabel);
+        descriptors = data.shutdownDescriptorPerPomLabelMap.remove(gavLabel);
         if (descriptors == null) {
             descriptors = new ArrayList<>();
         } return descriptors;
     }
 
     private List<ContainerShutdownDescriptor> getFromPomLabelMap(GavLabel gavLabel) {
-        List<ContainerShutdownDescriptor> descriptors = shutdownDescriptorPerPomLabelMap.get(gavLabel);
+        List<ContainerShutdownDescriptor> descriptors = data.shutdownDescriptorPerPomLabelMap.get(gavLabel);
         if (descriptors == null) {
             return new ArrayList<>();
         }
@@ -191,10 +184,10 @@ public class ContainerTracker {
     }
 
     private void clearAllMaps() {
-        shutdownDescriptorPerContainerMap.clear();
-        shutdownDescriptorPerPomLabelMap.clear();
-        imageToContainerMap.clear();
-        aliasToContainerMap.clear();
+        data.shutdownDescriptorPerContainerMap.clear();
+        data.shutdownDescriptorPerPomLabelMap.clear();
+        data.imageToContainerMap.clear();
+        data.aliasToContainerMap.clear();
     }
 
     // =======================================================
